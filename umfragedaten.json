@@ -339,7 +339,7 @@
     "Verian (Emnid)": 0.85,
     "INSA": 0.75,
     "YouGov": 0.9,
-    "Civey": 0.85,
+    "Civey": 0.3,
     "GMS": 0.7
   },
   "halfLifeDays": 21

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Umfragetrend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b1424; --panel: #121d30; --panel-2: #0e1826; --border: #1e2c42;
+    --text: #f4f6fb; --text-dim: #8fa0bc; --accent: #3f6ea5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  #root { max-width: 1000px; margin: 0 auto; padding: 28px; }
+  .ut-display { font-family: 'Archivo', 'Inter', sans-serif; font-weight: 800; }
+  .ut-hero { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+  .ut-hero-number { font-size: 64px; line-height: 1; letter-spacing: -0.02em; }
+  .ut-hero-meta { color: var(--text-dim); font-size: 13px; margin-bottom: 6px; }
+  .ut-hero-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 4px; }
+  .ut-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .ut-chip { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+  .ut-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .ut-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+  .ut-panel h3 { margin: 0 0 14px 0; font-size: 15px; font-weight: 700; }
+  table.ut-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ut-table th, table.ut-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  table.ut-table th { color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ut-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; }
+  .ut-chart-empty { color: var(--text-dim); font-size: 13px; }
+  .ut-footer { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 30px; }
+  .ut-footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect } = React;
+
+// ====== HIER EINMALIG ANPASSEN ======
+const GH_OWNER = "DEIN-GITHUB-BENUTZERNAME";
+const GH_REPO = "DEIN-REPOSITORY";
+const GH_PATH = "umfragedaten.json";
+const GH_BRANCH = "main";
+// =====================================
+
+const RAW_URL = "https://raw.githubusercontent.com/" + GH_OWNER + "/" + GH_REPO + "/" + GH_BRANCH + "/" + GH_PATH;
+const REFRESH_MS = 5 * 60 * 1000; // alle 5 Minuten neu laden
+
+const tsOf = (dateStr) => new Date(dateStr + "T00:00:00").getTime();
+const fmtDateShort = (ts) => new Date(ts).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" });
+const fmtDateLong = (ts) => new Date(ts).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" });
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+const recencyWeight = (pollDate, asOfDate, halfLifeDays, maxAgeDays) => {
+  const diffDays = (tsOf(asOfDate) - tsOf(pollDate)) / 86400000;
+  if (diffDays < 0) return 0;
+  if (diffDays > maxAgeDays) return 0;
+  return Math.pow(0.5, diffDays / halfLifeDays);
+};
+
+function weightedAverages(polls, parties, instituteWeights, halfLifeDays, maxAgeDays, asOfDate) {
+  const sums = {}, weightSums = {};
+  parties.forEach((p) => { sums[p.id] = 0; weightSums[p.id] = 0; });
+  polls.forEach((poll) => {
+    if (tsOf(poll.date) > tsOf(asOfDate)) return;
+    const stored = instituteWeights[poll.institute];
+    const iW = Math.max(0, typeof stored === "number" ? stored : 1);
+    const rW = recencyWeight(poll.date, asOfDate, halfLifeDays, maxAgeDays);
+    const w = iW * rW;
+    if (w <= 0) return;
+    parties.forEach((p) => {
+      const v = poll.values[p.id];
+      if (typeof v === "number" && !isNaN(v)) { sums[p.id] += v * w; weightSums[p.id] += w; }
+    });
+  });
+  const result = {};
+  parties.forEach((p) => { result[p.id] = weightSums[p.id] > 0 ? sums[p.id] / weightSums[p.id] : null; });
+  return result;
+}
+
+function TrendChart({ trendSeries, rawByParty, parties }) {
+  const width = 900, height = 380;
+  const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+  const innerW = width - margin.left - margin.right;
+  const innerH = height - margin.top - margin.bottom;
+  const allRaw = parties.flatMap((p) => rawByParty[p.id] || []);
+  const allTs = [...trendSeries.map((r) => r.ts), ...allRaw.map((r) => r.ts)];
+  if (allTs.length === 0) return <div className="ut-chart-empty">Noch keine Umfragen vorhanden.</div>;
+  const minTs = Math.min(...allTs), maxTs = Math.max(...allTs);
+  const allVals = [
+    ...trendSeries.flatMap((r) => parties.map((p) => r[p.id]).filter((v) => typeof v === "number")),
+    ...allRaw.map((r) => r.value),
+  ];
+  const maxVal = allVals.length ? Math.max(...allVals) : 50;
+  const yMax = Math.max(10, Math.ceil((maxVal + 5) / 5) * 5);
+  const xScale = (ts) => margin.left + (maxTs === minTs ? 0.5 : (ts - minTs) / (maxTs - minTs)) * innerW;
+  const yScale = (v) => margin.top + innerH - (v / yMax) * innerH;
+  const yTicks = [0, 1, 2, 3, 4, 5].map((i) => Math.round((yMax * i) / 5));
+  const xTickCount = Math.min(6, Math.max(2, trendSeries.length));
+  const xTicks = Array.from({ length: xTickCount }, (_, i) => minTs + (maxTs - minTs) * (i / (xTickCount - 1 || 1)));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
+      {yTicks.map((v) => (
+        <g key={"y" + v}>
+          <line x1={margin.left} x2={width - margin.right} y1={yScale(v)} y2={yScale(v)} stroke="var(--border)" strokeDasharray="3 3" />
+          <text x={margin.left - 8} y={yScale(v) + 4} textAnchor="end" fontSize="11" fill="var(--text-dim)">{v}%</text>
+        </g>
+      ))}
+      {xTicks.map((t, i) => (
+        <text key={"x" + i} x={xScale(t)} y={height - 8} textAnchor="middle" fontSize="11" fill="var(--text-dim)">{fmtDateShort(t)}</text>
+      ))}
+      {parties.map((p) => {
+        const raw = rawByParty[p.id] || [];
+        const trendPoints = trendSeries.filter((r) => typeof r[p.id] === "number")
+          .map((r) => xScale(r.ts) + "," + yScale(r[p.id])).join(" ");
+        return (
+          <g key={p.id}>
+            {raw.map((pt, idx) => (
+              <circle key={idx} cx={xScale(pt.ts)} cy={yScale(pt.value)} r="3.5" fill={p.color} opacity="0.4">
+                <title>{p.name + ": " + pt.value.toFixed(1).replace(".", ",") + "% am " + fmtDateLong(pt.ts)}</title>
+              </circle>
+            ))}
+            {trendPoints && <polyline points={trendPoints} fill="none" stroke={p.color} strokeWidth="2.5" />}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function PublicTrendView() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [lastFetched, setLastFetched] = useState(null);
+
+  async function load() {
+    try {
+      const res = await fetch(RAW_URL + "?t=" + Date.now()); // Cache-Buster, damit immer der aktuelle Stand kommt
+      if (!res.ok) throw new Error("Status " + res.status);
+      const json = await res.json();
+      setData(json);
+      setError("");
+      setLastFetched(new Date());
+    } catch (err) {
+      setError("Daten konnten nicht geladen werden. Bitte später erneut versuchen.");
+    }
+  }
+
+  useEffect(() => {
+    load();
+    const id = setInterval(load, REFRESH_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const parties = useMemo(() => (data ? data.parties.filter((p) => p.active) : []), [data]);
+  const polls = data ? data.polls : [];
+  const instituteWeights = data ? data.instituteWeights : {};
+  const halfLifeDays = data && typeof data.halfLifeDays === "number" ? data.halfLifeDays : 21;
+  const maxAgeDays = data && typeof data.maxAgeDays === "number" ? data.maxAgeDays : 365;
+  const asOfDate = todayISO();
+
+  const currentTrend = useMemo(
+    () => (data ? weightedAverages(polls, parties, instituteWeights, halfLifeDays, maxAgeDays, asOfDate) : {}),
+    [data]
+  );
+
+  const leadingParty = useMemo(() => {
+    let best = null;
+    parties.forEach((p) => {
+      const v = currentTrend[p.id];
+      if (v !== null && v !== undefined && (best === null || v > best.value)) best = { party: p, value: v };
+    });
+    return best;
+  }, [currentTrend, parties]);
+
+  const trendSeries = useMemo(() => {
+    if (!data) return [];
+    const uniqueDates = Array.from(new Set(polls.map((p) => p.date))).sort();
+    return uniqueDates.map((d) => {
+      const avgs = weightedAverages(polls, parties, instituteWeights, halfLifeDays, maxAgeDays, d);
+      const row = { ts: tsOf(d) };
+      parties.forEach((p) => { row[p.id] = avgs[p.id]; });
+      return row;
+    });
+  }, [data]);
+
+  const rawByParty = useMemo(() => {
+    const map = {};
+    parties.forEach((p) => {
+      map[p.id] = polls.filter((poll) => typeof poll.values[p.id] === "number")
+        .map((poll) => ({ ts: tsOf(poll.date), value: poll.values[p.id] }));
+    });
+    return map;
+  }, [data]);
+
+  const lastPollDate = useMemo(() => {
+    if (polls.length === 0) return null;
+    return polls.reduce((max, p) => (p.date > max ? p.date : max), polls[0].date);
+  }, [data]);
+
+  if (error) {
+    return <div id="root"><div className="ut-status">{error}</div></div>;
+  }
+  if (!data) {
+    return <div className="ut-status">Lade Umfragedaten …</div>;
+  }
+
+  return (
+    <div>
+      <div className="ut-hero">
+        <div>
+          <div className="ut-hero-label">Aktueller Trend</div>
+          {leadingParty ? (
+            <div className="ut-display ut-hero-number" style={{ color: leadingParty.party.color }}>
+              {leadingParty.value.toFixed(1).replace(".", ",")}%
+            </div>
+          ) : (
+            <div className="ut-display ut-hero-number" style={{ color: "var(--text-dim)" }}>—</div>
+          )}
+          <div className="ut-hero-meta">
+            {leadingParty ? leadingParty.party.name + " liegt vorn" : "Noch keine Umfragen erfasst"}
+            {lastPollDate ? " · zuletzt erfasst am " + fmtDateLong(tsOf(lastPollDate)) : ""}
+          </div>
+          <div className="ut-chips">
+            {parties.map((p) => (
+              <div className="ut-chip" key={p.id}>
+                <span className="ut-dot" style={{ background: p.color }} />
+                {p.name}: {currentTrend[p.id] !== null && currentTrend[p.id] !== undefined ? currentTrend[p.id].toFixed(1).replace(".", ",") + "%" : "–"}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="ut-panel">
+        <h3>Verlauf (gewichteter Trend, Punkte = einzelne Umfragen)</h3>
+        <TrendChart trendSeries={trendSeries} rawByParty={rawByParty} parties={parties} />
+      </div>
+
+      <div className="ut-panel">
+        <h3>Berücksichtigte Umfragen ({polls.length})</h3>
+        {polls.length === 0 ? (
+          <div className="ut-status">Noch keine Umfragen erfasst.</div>
+        ) : (
+          <table className="ut-table">
+            <thead>
+              <tr>
+                <th>Institut</th><th>Datum</th>
+                {parties.map((p) => <th key={p.id}>{p.name}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {[...polls].sort((a, b) => (a.date < b.date ? 1 : -1)).map((poll) => (
+                <tr key={poll.id}>
+                  <td>{poll.institute}</td>
+                  <td>{fmtDateShort(tsOf(poll.date))}</td>
+                  {parties.map((p) => (
+                    <td key={p.id}>{typeof poll.values[p.id] === "number" ? poll.values[p.id].toFixed(1).replace(".", ",") + "%" : "–"}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="ut-footer">
+        Nur Lesezugriff · aktualisiert sich automatisch alle 5 Minuten
+        {lastFetched ? " · zuletzt geladen um " + lastFetched.toLocaleTimeString("de-DE") : ""}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<PublicTrendView />);
+</script>
+</body>
+</html>

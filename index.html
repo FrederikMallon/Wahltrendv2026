@@ -4,6 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Umfragetrend</title>
+<meta property="og:title" content="Umfragetrend" />
+<meta property="og:description" content="Gewichteter Umfragetrend auf Basis manuell erfasster Umfragen." />
+<meta property="og:image" content="og-image.png" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
@@ -65,6 +70,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js" crossorigin></script>
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin></script>
 
 <script type="text/babel" data-presets="react">
 const { useState, useMemo, useRef, useEffect } = React;
@@ -123,13 +129,14 @@ function loadGithubConfig() {
 const savedState = loadSavedState();
 const savedGithubConfig = loadGithubConfig();
 
-const recencyWeight = (pollDate, asOfDate, halfLifeDays) => {
+const recencyWeight = (pollDate, asOfDate, halfLifeDays, maxAgeDays) => {
   const diffDays = (tsOf(asOfDate) - tsOf(pollDate)) / 86400000;
   if (diffDays < 0) return 0;
+  if (diffDays > maxAgeDays) return 0;
   return Math.pow(0.5, diffDays / halfLifeDays);
 };
 
-function weightedAverages(polls, parties, instituteWeights, halfLifeDays, asOfDate) {
+function weightedAverages(polls, parties, instituteWeights, halfLifeDays, maxAgeDays, asOfDate) {
   const sums = {};
   const weightSums = {};
   parties.forEach((p) => { sums[p.id] = 0; weightSums[p.id] = 0; });
@@ -137,7 +144,7 @@ function weightedAverages(polls, parties, instituteWeights, halfLifeDays, asOfDa
     if (tsOf(poll.date) > tsOf(asOfDate)) return;
     const storedWeight = instituteWeights[poll.institute];
     const iW = Math.max(0, typeof storedWeight === "number" ? storedWeight : 1);
-    const rW = recencyWeight(poll.date, asOfDate, halfLifeDays);
+    const rW = recencyWeight(poll.date, asOfDate, halfLifeDays, maxAgeDays);
     const w = iW * rW;
     if (w <= 0) return;
     parties.forEach((p) => {
@@ -226,6 +233,9 @@ function Umfragetrend() {
   const [halfLifeDays, setHalfLifeDays] = useState(
     savedState && typeof savedState.halfLifeDays === "number" ? savedState.halfLifeDays : 21
   );
+  const [maxAgeDays, setMaxAgeDays] = useState(
+    savedState && typeof savedState.maxAgeDays === "number" ? savedState.maxAgeDays : 365
+  );
 
   const [showSettings, setShowSettings] = useState(false);
   const [showGithub, setShowGithub] = useState(true);
@@ -265,8 +275,8 @@ function Umfragetrend() {
   const asOfDate = todayISO();
 
   const currentTrend = useMemo(
-    () => weightedAverages(polls, activeParties, instituteWeights, halfLifeDays, asOfDate),
-    [polls, activeParties, instituteWeights, halfLifeDays]
+    () => weightedAverages(polls, activeParties, instituteWeights, halfLifeDays, maxAgeDays, asOfDate),
+    [polls, activeParties, instituteWeights, halfLifeDays, maxAgeDays]
   );
 
   const leadingParty = useMemo(() => {
@@ -281,12 +291,12 @@ function Umfragetrend() {
   const trendSeries = useMemo(() => {
     const uniqueDates = Array.from(new Set(polls.map((p) => p.date))).sort();
     return uniqueDates.map((d) => {
-      const avgs = weightedAverages(polls, activeParties, instituteWeights, halfLifeDays, d);
+      const avgs = weightedAverages(polls, activeParties, instituteWeights, halfLifeDays, maxAgeDays, d);
       const row = { ts: tsOf(d) };
       activeParties.forEach((p) => { row[p.id] = avgs[p.id]; });
       return row;
     });
-  }, [polls, activeParties, instituteWeights, halfLifeDays]);
+  }, [polls, activeParties, instituteWeights, halfLifeDays, maxAgeDays]);
 
   const rawByParty = useMemo(() => {
     const map = {};
@@ -306,11 +316,11 @@ function Umfragetrend() {
   // ---------- Lokaler Zwischenspeicher (Browser dieses Geräts) ----------
   useEffect(() => {
     try {
-      localStorage.setItem(STATE_KEY, JSON.stringify({ parties, polls, instituteWeights, halfLifeDays }));
+      localStorage.setItem(STATE_KEY, JSON.stringify({ parties, polls, instituteWeights, halfLifeDays, maxAgeDays }));
     } catch (err) {
       // Speicher voll oder blockiert - kein hartes Problem, GitHub bleibt die Quelle der Wahrheit
     }
-  }, [parties, polls, instituteWeights, halfLifeDays]);
+  }, [parties, polls, instituteWeights, halfLifeDays, maxAgeDays]);
 
   // ---------- GitHub Sync ----------
   function saveGithubConfig(remember) {
@@ -368,6 +378,7 @@ function Umfragetrend() {
       if (data.polls) setPolls(data.polls);
       if (data.instituteWeights) setInstituteWeights(data.instituteWeights);
       if (typeof data.halfLifeDays === "number") setHalfLifeDays(data.halfLifeDays);
+      if (typeof data.maxAgeDays === "number") setMaxAgeDays(data.maxAgeDays);
       setGhConnected(true);
       saveGithubConfig(ghRememberToken);
       setGhStatus("Verbunden. Zuletzt von GitHub geladen.");
@@ -385,7 +396,7 @@ function Umfragetrend() {
     setGhBusy(true);
     setGhStatus("Speichere auf GitHub …");
     try {
-      const payload = { parties, polls, instituteWeights, halfLifeDays };
+      const payload = { parties, polls, instituteWeights, halfLifeDays, maxAgeDays };
       const content = b64EncodeUtf8(JSON.stringify(payload, null, 2));
       const url = "https://api.github.com/repos/" + ghOwner + "/" + ghRepo + "/contents/" + encodeURIComponent(ghPath);
       const body = { message: "Umfragedaten aktualisiert (" + todayISO() + ")", content: content, branch: ghBranch };
@@ -425,7 +436,7 @@ function Umfragetrend() {
     ghSaveTimer.current = setTimeout(() => { githubSave(); }, 1500);
     return () => clearTimeout(ghSaveTimer.current);
     // eslint-disable-next-line
-  }, [parties, polls, instituteWeights, halfLifeDays, ghConnected]);
+  }, [parties, polls, instituteWeights, halfLifeDays, maxAgeDays, ghConnected]);
 
   // ---------- Formular-Handling ----------
   function resetForm() {
@@ -499,7 +510,7 @@ function Umfragetrend() {
   }
 
   function exportJson() {
-    const payload = { parties, polls, instituteWeights, halfLifeDays };
+    const payload = { parties, polls, instituteWeights, halfLifeDays, maxAgeDays };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -518,6 +529,7 @@ function Umfragetrend() {
         if (data.polls) setPolls(data.polls);
         if (data.instituteWeights) setInstituteWeights(data.instituteWeights);
         if (typeof data.halfLifeDays === "number") setHalfLifeDays(data.halfLifeDays);
+      if (typeof data.maxAgeDays === "number") setMaxAgeDays(data.maxAgeDays);
         setGhStatus("JSON erfolgreich importiert.");
       } catch (err) {
         setGhStatus("Fehler beim Einlesen: Datei ist kein gültiges JSON.");
@@ -526,8 +538,25 @@ function Umfragetrend() {
     reader.readAsText(file);
   }
 
+  function exportSnapshot() {
+    const node = document.getElementById("ut-export-area");
+    if (!node || !window.html2canvas) return;
+    setGhStatus("Erzeuge Bild …");
+    window.html2canvas(node, { backgroundColor: "#0b1424", scale: 2 }).then((canvas) => {
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "umfragetrend-" + todayISO() + ".png";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    });
+  }
+
   return (
     <div>
+      <div id="ut-export-area">
       <div className="ut-hero">
         <div>
           <div className="ut-hero-label">Aktueller Trend</div>
@@ -553,15 +582,53 @@ function Umfragetrend() {
         </div>
       </div>
 
+      <div className="ut-panel">
+        <h3>Verlauf (gewichteter Trend, Punkte = einzelne Umfragen)</h3>
+        <TrendChart trendSeries={trendSeries} rawByParty={rawByParty} parties={activeParties} />
+      </div>
+
+      <div className="ut-panel">
+        <h3>Erfasste Umfragen ({polls.length})</h3>
+        {polls.length === 0 ? (
+          <div className="ut-status">Noch keine Umfragen erfasst.</div>
+        ) : (
+          <table className="ut-table">
+            <thead>
+              <tr>
+                <th>Institut</th><th>Datum</th>
+                {activeParties.map((p) => <th key={p.id}>{p.name}</th>)}
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...polls].sort((a, b) => (a.date < b.date ? 1 : -1)).map((poll) => (
+                <tr key={poll.id}>
+                  <td>{poll.institute}</td>
+                  <td>{fmtDateShort(tsOf(poll.date))}</td>
+                  {activeParties.map((p) => (
+                    <td key={p.id}>{typeof poll.values[p.id] === "number" ? poll.values[p.id].toFixed(1).replace(".", ",") + "%" : "–"}</td>
+                  ))}
+                  <td>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button className="ut-btn secondary" style={{ padding: "4px 10px" }} onClick={() => loadPollIntoForm(poll)}>Bearbeiten</button>
+                      <button className="ut-btn danger" style={{ padding: "4px 10px" }} onClick={() => deletePoll(poll.id)}>Löschen</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      </div>
+
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <span className="ut-status" style={{ margin: 0 }}>
           {ghConnected ? "GitHub: " + ghStatus : "Lokal (dieser Browser): gespeichert"}
         </span>
-      </div>
-
-      <div className="ut-panel">
-        <h3>Verlauf (gewichteter Trend, Punkte = einzelne Umfragen)</h3>
-        <TrendChart trendSeries={trendSeries} rawByParty={rawByParty} parties={activeParties} />
+        <button className="ut-btn secondary" style={{ padding: "6px 12px" }} onClick={exportSnapshot}>
+          Bild für Substack exportieren
+        </button>
       </div>
 
       <div className="ut-panel">
@@ -604,39 +671,6 @@ function Umfragetrend() {
         </form>
       </div>
 
-      <div className="ut-panel">
-        <h3>Erfasste Umfragen ({polls.length})</h3>
-        {polls.length === 0 ? (
-          <div className="ut-status">Noch keine Umfragen erfasst.</div>
-        ) : (
-          <table className="ut-table">
-            <thead>
-              <tr>
-                <th>Institut</th><th>Datum</th>
-                {activeParties.map((p) => <th key={p.id}>{p.name}</th>)}
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...polls].sort((a, b) => (a.date < b.date ? 1 : -1)).map((poll) => (
-                <tr key={poll.id}>
-                  <td>{poll.institute}</td>
-                  <td>{fmtDateShort(tsOf(poll.date))}</td>
-                  {activeParties.map((p) => (
-                    <td key={p.id}>{typeof poll.values[p.id] === "number" ? poll.values[p.id].toFixed(1).replace(".", ",") + "%" : "–"}</td>
-                  ))}
-                  <td>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="ut-btn secondary" style={{ padding: "4px 10px" }} onClick={() => loadPollIntoForm(poll)}>Bearbeiten</button>
-                      <button className="ut-btn danger" style={{ padding: "4px 10px" }} onClick={() => deletePoll(poll.id)}>Löschen</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
 
       <div className="ut-panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -698,6 +732,11 @@ function Umfragetrend() {
             <div className="ut-field" style={{ maxWidth: 320 }}>
               <label>Halbwertszeit: {halfLifeDays} Tage (Umfragen verlieren nach dieser Zeit die Hälfte ihres Gewichts)</label>
               <input type="range" min="3" max="90" value={halfLifeDays} onChange={(e) => setHalfLifeDays(parseInt(e.target.value, 10))} />
+            </div>
+            <div style={{ height: 16 }} />
+            <div className="ut-field" style={{ maxWidth: 320 }}>
+              <label>Höchstalter: {maxAgeDays} Tage (Umfragen darüber hinaus zählen mit Gewicht 0, unabhängig von der Halbwertszeit)</label>
+              <input type="range" min="30" max="720" step="5" value={maxAgeDays} onChange={(e) => setMaxAgeDays(parseInt(e.target.value, 10))} />
             </div>
           </div>
         )}

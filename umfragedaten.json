@@ -41,6 +41,12 @@
       "name": "Sonstige",
       "color": "#7D8796",
       "active": true
+    },
+    {
+      "id": "2ldx32a9mrqtmte9",
+      "name": "BSW",
+      "color": "#45094a",
+      "active": true
     }
   ],
   "polls": [

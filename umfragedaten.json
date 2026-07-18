@@ -109,21 +109,6 @@
         "sonstige": 5,
         "2ldx32a9mrqtmte9": 4
       }
-    },
-    {
-      "id": "liquoapimrqtpjsw",
-      "institute": "INSA",
-      "date": "2026-07-18",
-      "values": {
-        "cdu": 21,
-        "spd": 13,
-        "gruene": 13,
-        "fdp": 4,
-        "linke": 10,
-        "afd": 29,
-        "sonstige": 7,
-        "2ldx32a9mrqtmte9": 3
-      }
     }
   ],
   "instituteWeights": {

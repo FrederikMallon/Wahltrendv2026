@@ -830,6 +830,6 @@
     "Civey": 0.3,
     "GMS": 0.7
   },
-  "halfLifeDays": 14,
+  "halfLifeDays": 4,
   "maxAgeDays": 100
 }

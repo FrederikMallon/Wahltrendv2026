@@ -106,6 +106,75 @@ Auch außerhalb von claude.ai gilt: Nimm für den Personal Access Token unbeding
 „Token merken"-Option legt ihn nur im lokalen Speicher deines eigenen Browsers ab — nicht
 auf einem gemeinsam genutzten oder öffentlichen Rechner aktivieren.
 
+## Eigenen GitHub-Namen aus der URL heraushalten
+
+Standardmäßig taucht dein persönlicher GitHub-Benutzername in der Pages-URL auf
+(`https://<dein-name>.github.io/<repo>/`). Wer das nicht möchte, überträgt das Repository
+auf eine kostenlose GitHub-Organisation mit frei wählbarem Namen — die URL enthält dann
+nur noch diesen Organisationsnamen.
+
+### 1. Neue Organisation anlegen
+
+1. Oben rechts auf github.com auf **„+"** → **„New organization"**
+2. Kostenlosen Plan („Free") wählen
+3. Einen Organisationsnamen vergeben, der nichts mit dem persönlichen Benutzernamen zu tun
+   hat (z. B. `umfragetrend-de`)
+4. Beim Einladen von Mitgliedern ggf. „Skip this step" wählen
+
+### 2. Bestehendes Repository übertragen
+
+1. Ins Repository → **Settings**
+2. Ganz nach unten zur **„Danger Zone"** scrollen
+3. Bei **„Transfer ownership"** auf **Transfer** klicken
+4. Als neuen Besitzer den Namen der neuen Organisation eintragen
+5. Zur Bestätigung den angezeigten Repository-Namen eintippen
+6. Auf **„I understand, transfer this repository"** klicken
+
+Das Repo liegt danach unter `github.com/<organisation>/<repo>`. Der alte, persönliche Link
+wird eine Zeit lang automatisch weitergeleitet — trotzdem Lesezeichen/Notizen aktualisieren.
+
+### 3. GitHub Pages prüfen
+
+Die Pages-Einstellungen (Branch, Ordner) wandern automatisch mit. Unter *Settings → Pages*
+im übertragenen Repo erscheint die neue URL, z. B.:
+```
+https://<organisation>.github.io/<repo>/
+```
+
+### 4. `trend.html` (und `index.html`) anpassen
+
+In `trend.html` die Konstante ganz oben ändern:
+```js
+const GH_OWNER = "<organisation>";   // statt des persönlichen Namens
+```
+Am einfachsten direkt auf github.com: Datei öffnen → Stift-Symbol („Edit this file") →
+Zeile ändern → „Commit changes". Im GitHub-Bereich von `index.html` genügt es, beim
+nächsten Verbinden im Feld „GitHub-Benutzer/-Organisation" den neuen Namen einzutragen.
+
+### 5. Neues Token nötig
+
+Ein Fine-grained Token, das für das persönliche Repo erstellt wurde, funktioniert nach der
+Übertragung an eine Organisation in der Regel **nicht automatisch weiter** — Organisationen
+verlangen für fine-grained Tokens meist eine explizite Freigabe durch den Org-Owner (bei
+einer Solo-Organisation bist zwar du selbst der Owner, der Freigabeschritt bleibt aber
+trotzdem nötig). Am einfachsten: ein neues Token erstellen (wie im Abschnitt „Einrichtung"
+oben, beschränkt auf genau das übertragene Repository) und in `index.html`:
+
+1. Falls „Token merken" aktiv war: erst auf **„Verbindung trennen"** klicken
+2. Owner-Feld auf den Organisationsnamen ändern
+3. Neues Token eintragen, wieder **„Verbinden"** klicken
+
+### Weitere Optionen
+
+- **Eigene Domain:** Unter *Settings → Pages → Custom domain* lässt sich eine eigene Domain
+  hinterlegen (z. B. `trend.deinedomain.de`) — dann taucht gar kein GitHub-Name mehr in der
+  sichtbaren Adresse auf.
+- **Andere Hosting-Plattform** (Netlify, Vercel, Cloudflare Pages): `index.html`/`trend.html`
+  lassen sich genauso dort mit einem frei wählbaren Projektnamen hosten. Wichtig zur
+  Ehrlichkeit: `umfragedaten.json` liegt dabei weiterhin im GitHub-Repo, `trend.html` holt
+  sie über `raw.githubusercontent.com/<owner>/...` — das steht zwar nicht in der Adresszeile,
+  wäre aber bei einer Netzwerk-Analyse im Browser trotzdem sichtbar.
+
 ## Datenformat (`umfragedaten.json`)
 
 ```jsonc

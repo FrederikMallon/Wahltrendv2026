@@ -448,6 +448,36 @@
         "sonstige": 6,
         "2ldx32a9mrqtmte9": 3
       }
+    },
+    {
+      "id": "dhcu15rlmrqwq2c9",
+      "institute": "Forsa",
+      "date": "2026-06-09",
+      "values": {
+        "cdu": 22,
+        "spd": 11,
+        "gruene": 15,
+        "fdp": 5,
+        "linke": 11,
+        "afd": 27,
+        "sonstige": 6,
+        "2ldx32a9mrqtmte9": 3
+      }
+    },
+    {
+      "id": "l7nilstdmrqwrfan",
+      "institute": "Forsa",
+      "date": "2026-06-02",
+      "values": {
+        "cdu": 21,
+        "spd": 12,
+        "gruene": 15,
+        "fdp": 5,
+        "linke": 11,
+        "afd": 27,
+        "sonstige": 6,
+        "2ldx32a9mrqtmte9": 3
+      }
     }
   ],
   "instituteWeights": {

@@ -773,6 +773,20 @@
         "afd": 26,
         "sonstige": 8
       }
+    },
+    {
+      "id": "wqyw9o0smrqyybym",
+      "institute": "Forschungsgruppe Wahlen",
+      "date": "2026-05-08",
+      "values": {
+        "cdu": 25,
+        "spd": 12,
+        "gruene": 13,
+        "fdp": 3,
+        "linke": 11,
+        "afd": 27,
+        "sonstige": 9
+      }
     }
   ],
   "instituteWeights": {

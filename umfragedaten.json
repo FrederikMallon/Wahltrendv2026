@@ -745,6 +745,20 @@
         "afd": 27,
         "sonstige": 9
       }
+    },
+    {
+      "id": "kkw5o5jnmrqyvq12",
+      "institute": "Forsa",
+      "date": "2026-05-05",
+      "values": {
+        "cdu": 22,
+        "spd": 12,
+        "gruene": 16,
+        "fdp": 4,
+        "linke": 11,
+        "afd": 27,
+        "sonstige": 8
+      }
     }
   ],
   "instituteWeights": {

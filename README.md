@@ -196,6 +196,11 @@ oben, beschränkt auf genau das übertragene Repository) und in `index.html`:
     "Forsa": 1.2
     // Institut -> frei gewählter Gewichtungsfaktor, 1.0 = neutral
   },
+  "instituteActive": {
+    "Forsa": true
+    // Institut -> ob es in Schnitt und Grafik berücksichtigt wird. Fehlt ein Institut hier,
+    // gilt es als aktiv (true ist der Standard).
+  },
   "halfLifeDays": 21,
   "maxAgeDays": 365
 }
@@ -206,11 +211,68 @@ oben, beschränkt auf genau das übertragene Repository) und in `index.html`:
 - **polls**: jede einzelne erfasste Umfrage mit Institut, Datum und den Prozentwerten je Partei.
 - **instituteWeights**: der von Hand vergebene Gewichtungsfaktor je Institut. Werte über 1.0
   zählen stärker in den Trend, Werte darunter schwächer.
+- **instituteActive**: ob ein Institut überhaupt in die Berechnung eingeht. Über die
+  „Aktiv"-Spalte im Einstellungen-Panel lässt sich ein Institut komplett heraus- oder wieder
+  hereinrechnen, ohne seine Umfragen zu löschen.
 - **halfLifeDays**: Anzahl Tage, nach denen eine Umfrage die Hälfte ihres Gewichts verliert
   (exponentieller Zerfall, nähert sich Null nur asymptotisch an).
 - **maxAgeDays**: harte Altersgrenze. Umfragen, die älter sind, zählen mit Gewicht 0 —
   unabhängig vom exponentiellen Zerfall. Das verhindert, dass sehr alte Umfragen (z. B. von
   vor einem Jahr) rechnerisch noch einen (wenn auch winzigen) Einfluss behalten.
+
+## Lange Listen: „Ältere Umfragen anzeigen"
+
+Die Tabelle der erfassten bzw. berücksichtigten Umfragen zeigt anfangs nur die 15 neuesten
+Einträge. Darunter erscheint ein Button „Ältere Umfragen anzeigen", der jeweils 15 weitere
+nachlädt — das gilt für `index.html`, `trend.html`, `kanzlertrend.html` und
+`kanzlertrend-oeffentlich.html` gleichermaßen. Es werden dabei nur mehr Zeilen sichtbar
+gemacht; berechnet wird ohnehin immer mit allen (bzw. allen nicht ausgeblendeten) Umfragen,
+unabhängig davon, wie viele Zeilen gerade angezeigt werden.
+
+## Zweites Tool: Zufriedenheit mit Kanzler und Regierung
+
+Im selben Repository liegt ein zweites, unabhängiges Tool nach demselben Prinzip:
+
+- **`kanzlertrend.html`** — private Eingabe-Oberfläche für Zufriedenheitsumfragen
+  (analog zu `index.html`)
+- **`kanzlertrend-oeffentlich.html`** — öffentliche, rein lesende Ansicht
+  (analog zu `trend.html`)
+- **`zufriedenheitsdaten.json`** — die zugehörige Datendatei, getrennt von `umfragedaten.json`
+
+Es teilt sich Engine, Gewichtungslogik (Institutsgewicht × Aktualitäts-Zerfall × Höchstalter),
+GitHub-Synchronisierung und Paginierung 1:1 mit dem Umfragetrend-Tool. Der Unterschied liegt
+im Datenmodell: Statt einzelner Parteien gibt es vier Kategorien in zwei Gruppen —
+
+- **Kanzler**: „Kanzler zufrieden" (primär, große Zahl im Kopfbereich) und
+  „Kanzler unzufrieden"
+- **Regierung**: „Regierung zufrieden" (primär) und „Regierung unzufrieden"
+
+Da „zufrieden" und „unzufrieden" sich wegen „weiß nicht"-Antworten nicht immer exakt zu 100%
+addieren, prüft das Formular die Summe **pro Gruppe** getrennt, nicht insgesamt. Weitere
+Kategorien oder Gruppen lassen sich in den Einstellungen ergänzen — dort auch die Zuordnung
+zu einer Gruppe und ob eine Kategorie als „primär" (= die große Zahl im Kopfbereich) gilt.
+
+Institute sind hier standardmäßig auf `infratest dimap`, `Forschungsgruppe Wahlen` und
+`Ipsos` vorbelegt (Gewicht 1.0–1.2), lassen sich aber genauso frei anpassen, hinzufügen oder
+über „Aktiv" aus der Berechnung herausnehmen wie beim Umfragetrend-Tool.
+
+### Einrichtung
+
+Identisch zum Umfragetrend-Tool (siehe „Einrichtung" oben), nur mit den drei Dateien
+`kanzlertrend.html`, `kanzlertrend-oeffentlich.html` und `zufriedenheitsdaten.json` statt
+`index.html`, `trend.html` und `umfragedaten.json`. Beide Tools können im selben
+Repository und auf derselben GitHub-Pages-Seite nebeneinander laufen, z. B.:
+
+```
+https://<benutzername-oder-organisation>.github.io/<repo>/                        → Umfragetrend (privat)
+https://<benutzername-oder-organisation>.github.io/<repo>/trend.html              → Umfragetrend (öffentlich)
+https://<benutzername-oder-organisation>.github.io/<repo>/kanzlertrend.html            → Zufriedenheitstrend (privat)
+https://<benutzername-oder-organisation>.github.io/<repo>/kanzlertrend-oeffentlich.html → Zufriedenheitstrend (öffentlich)
+```
+
+Vor dem Hochladen auch in `kanzlertrend-oeffentlich.html` einmalig die vier Konstanten
+(`GH_OWNER`, `GH_REPO`, `GH_PATH`, `GH_BRANCH`) oben im Skript anpassen — `GH_PATH` hier auf
+`zufriedenheitsdaten.json` setzen.
 
 ## Versionierung
 

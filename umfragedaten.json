@@ -1016,6 +1016,21 @@
         "sonstige": 4,
         "2ldx32a9mrqtmte9": 3.5
       }
+    },
+    {
+      "id": "6j6wdkz4mrtetw5q",
+      "institute": "Insa",
+      "date": "2026-04-25",
+      "values": {
+        "cdu": 24,
+        "spd": 14,
+        "gruene": 12,
+        "fdp": 3,
+        "linke": 11,
+        "afd": 28,
+        "sonstige": 5,
+        "2ldx32a9mrqtmte9": 3
+      }
     }
   ],
   "instituteWeights": {
@@ -1027,7 +1042,8 @@
     "INSA": 0.75,
     "YouGov": 0.9,
     "Civey": 0.3,
-    "GMS": 0.7
+    "GMS": 0.7,
+    "Insa": 1
   },
   "halfLifeDays": 14,
   "maxAgeDays": 100

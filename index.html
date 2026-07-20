@@ -238,6 +238,7 @@ function Umfragetrend() {
   );
 
   const [showSettings, setShowSettings] = useState(false);
+  const [pollsVisibleCount, setPollsVisibleCount] = useState(15);
   const [showGithub, setShowGithub] = useState(true);
 
   const [formInstitute, setFormInstitute] = useState("");
@@ -677,32 +678,57 @@ function Umfragetrend() {
         {polls.length === 0 ? (
           <div className="ut-status">Noch keine Umfragen erfasst.</div>
         ) : (
-          <table className="ut-table">
-            <thead>
-              <tr>
-                <th>Institut</th><th>Datum</th>
-                {activeParties.map((p) => <th key={p.id}>{p.name}</th>)}
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...polls].sort((a, b) => (a.date < b.date ? 1 : -1)).map((poll) => (
-                <tr key={poll.id}>
-                  <td>{poll.institute}</td>
-                  <td>{fmtDateShort(tsOf(poll.date))}</td>
-                  {activeParties.map((p) => (
-                    <td key={p.id}>{typeof poll.values[p.id] === "number" ? poll.values[p.id].toFixed(1).replace(".", ",") + "%" : "–"}</td>
+          <>
+          {(() => {
+            const sortedPolls = [...polls].sort((a, b) => (a.date < b.date ? 1 : -1));
+            const visiblePolls = sortedPolls.slice(0, pollsVisibleCount);
+            const remaining = sortedPolls.length - visiblePolls.length;
+            return (
+              <>
+              <table className="ut-table">
+                <thead>
+                  <tr>
+                    <th>Institut</th><th>Datum</th>
+                    {activeParties.map((p) => <th key={p.id}>{p.name}</th>)}
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiblePolls.map((poll) => (
+                    <tr key={poll.id}>
+                      <td>{poll.institute}</td>
+                      <td>{fmtDateShort(tsOf(poll.date))}</td>
+                      {activeParties.map((p) => (
+                        <td key={p.id}>{typeof poll.values[p.id] === "number" ? poll.values[p.id].toFixed(1).replace(".", ",") + "%" : "–"}</td>
+                      ))}
+                      <td>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button className="ut-btn secondary" style={{ padding: "4px 10px" }} onClick={() => loadPollIntoForm(poll)}>Bearbeiten</button>
+                          <button className="ut-btn danger" style={{ padding: "4px 10px" }} onClick={() => deletePoll(poll.id)}>Löschen</button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                  <td>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="ut-btn secondary" style={{ padding: "4px 10px" }} onClick={() => loadPollIntoForm(poll)}>Bearbeiten</button>
-                      <button className="ut-btn danger" style={{ padding: "4px 10px" }} onClick={() => deletePoll(poll.id)}>Löschen</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+              {remaining > 0 && (
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                  <button className="ut-btn secondary" onClick={() => setPollsVisibleCount((c) => c + 15)}>
+                    Ältere Umfragen anzeigen (+{Math.min(15, remaining)})
+                  </button>
+                </div>
+              )}
+              {pollsVisibleCount > 15 && remaining === 0 && (
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+                  <button className="ut-btn secondary" onClick={() => setPollsVisibleCount(15)}>
+                    Nur neueste anzeigen
+                  </button>
+                </div>
+              )}
+              </>
+            );
+          })()}
+          </>
         )}
       </div>
 

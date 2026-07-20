@@ -873,6 +873,20 @@
         "afd": 25,
         "sonstige": 8
       }
+    },
+    {
+      "id": "llwarmipmrtehmis",
+      "institute": "Allensbach",
+      "date": "2026-03-21",
+      "values": {
+        "cdu": 28,
+        "spd": 16,
+        "gruene": 11.5,
+        "fdp": 4,
+        "linke": 10,
+        "afd": 23,
+        "sonstige": 7.5
+      }
     }
   ],
   "instituteWeights": {

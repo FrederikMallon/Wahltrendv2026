@@ -1210,11 +1210,11 @@
     "Insa": 1
   },
   "instituteActive": {
-    "INSA": false,
-    "GMS": false,
-    "Forschungsgruppe Wahlen": false,
-    "Forsa": false,
-    "Civey": false
+    "INSA": true,
+    "GMS": true,
+    "Forschungsgruppe Wahlen": true,
+    "Forsa": true,
+    "Civey": true
   },
   "halfLifeDays": 14,
   "maxAgeDays": 100
